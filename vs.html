@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Event Reporting Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Academic Calm -->
+    <!-- Application Structure Plan: The application is designed as a single-page interactive dashboard. This structure was chosen because it allows administrators to get a quick, high-level overview of all key metrics (KPIs, event popularity, attendance rates) in one place, while also enabling deeper exploration through interactive filters (e.g., filtering by college). The user flow is simple: view the overall picture, then drill down by selecting a college to see specific performance. This dashboard approach is more efficient and user-friendly for data synthesis than a static, multi-page report, directly addressing the need to explore and understand event data dynamically. The addition of an AI-powered insights section further enhances the user flow by providing narrative summaries of the data, turning raw numbers into actionable intelligence. -->
+    <!-- Visualization & Content Choices: 
+        - Overall Stats: Inform -> KPI Cards -> Dynamic Text -> Provides immediate high-level metrics -> HTML/JS.
+        - Event Popularity: Compare -> Horizontal Bar Chart -> Hover for details -> Best for comparing/ranking distinct items (events) -> Chart.js.
+        - Registrations vs. Attendance: Compare/Relationships -> Grouped Bar Chart -> Hover for details -> Clearly shows the relationship and gap between two related metrics for each event -> Chart.js.
+        - Feedback Distribution: Inform/Proportions -> Doughnut Chart -> Hover for details -> Ideal for showing parts of a whole (rating distribution) in a visually engaging way -> Chart.js.
+        - Top Students: Organize/Inform -> Interactive Table -> Sortable/Searchable -> Provides detailed, granular data that is easily organized and queried by the user -> HTML/JS.
+        - System Workflow: Organize -> Diagram -> Static Visual -> Explains the data's origin and context within the platform -> HTML/Tailwind CSS.
+        - AI-Powered Insights: Analyze/Synthesize -> Gemini API-powered text generation -> Creates narrative summaries from structured data (event stats) and unstructured data (feedback comments) -> Provides deeper, actionable intelligence -> HTML/JS/Gemini API.
+        This combination of visualizations provides a comprehensive yet easy-to-digest view of the platform's data, fulfilling the core reporting requirements. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .kpi-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-6 lg:p-8">
+        
+        <header class="mb-8 text-center md:text-left">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Admin Reporting Dashboard</h1>
+            <p class="text-gray-600 mt-2">An overview of campus event performance and student engagement.</p>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-md p-4 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            <label for="collegeFilter" class="font-semibold text-gray-700">Filter by College:</label>
+            <select id="collegeFilter" class="w-full md:w-1/3 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                <option value="all">All Colleges</option>
+            </select>
+        </div>
+
+        <main>
+            <section id="kpi-section" class="mb-8">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="kpi-card text-center">
+                        <h3 class="text-lg font-semibold text-gray-500">Total Events</h3>
+                        <p id="totalEvents" class="text-4xl font-bold text-blue-600 mt-2">0</p>
+                    </div>
+                    <div class="kpi-card text-center">
+                        <h3 class="text-lg font-semibold text-gray-500">Total Registrations</h3>
+                        <p id="totalRegistrations" class="text-4xl font-bold text-green-600 mt-2">0</p>
+                    </div>
+                    <div class="kpi-card text-center">
+                        <h3 class="text-lg font-semibold text-gray-500">Avg. Attendance Rate</h3>
+                        <p id="avgAttendance" class="text-4xl font-bold text-yellow-600 mt-2">0%</p>
+                    </div>
+                    <div class="kpi-card text-center">
+                        <h3 class="text-lg font-semibold text-gray-500">Avg. Feedback Score</h3>
+                        <p id="avgFeedback" class="text-4xl font-bold text-purple-600 mt-2">0/5</p>
+                    </div>
+                </div>
+            </section>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-1">Event Popularity</h2>
+                    <p class="text-gray-600 mb-4">This chart ranks events by the total number of student registrations. Use it to identify the most popular events across campus(es).</p>
+                    <div class="chart-container">
+                        <canvas id="popularityChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-1">Registrations vs. Attendance</h2>
+                    <p class="text-gray-600 mb-4">This chart compares the number of registered students to those who actually attended. This helps gauge event commitment and identify drop-off rates.</p>
+                    <div class="chart-container">
+                        <canvas id="attendanceChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-1">Feedback Score Distribution</h2>
+                    <p class="text-gray-600 mb-4">This shows the breakdown of feedback ratings (1-5) submitted by students. It provides a quick look at overall event satisfaction.</p>
+                     <div class="chart-container">
+                        <canvas id="feedbackChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-bold mb-1">Most Active Students</h2>
+                    <p class="text-gray-600 mb-4">This table highlights students with the highest event attendance. You can sort by name or number of events attended to find the most engaged students.</p>
+                    <div class="table-container">
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-50 border-b-2 border-gray-200">
+                                <tr>
+                                    <th class="p-3 text-sm font-semibold tracking-wide">Student Name</th>
+                                    <th class="p-3 text-sm font-semibold tracking-wide">College</th>
+                                    <th class="p-3 text-sm font-semibold tracking-wide text-right">Events Attended</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <section id="ai-insights" class="mt-8 bg-white rounded-xl shadow-md p-6">
+                <h2 class="text-xl font-bold mb-1">Event Insights Powered by AI</h2>
+                <p class="text-gray-600 mb-4">Get a quick, narrative summary of event performance and feedback with AI assistance.</p>
+                <div class="flex flex-col md:flex-row items-center justify-start gap-4 mb-4">
+                    <label for="eventSelector" class="font-semibold text-gray-700 whitespace-nowrap">Select an Event:</label>
+                    <select id="eventSelector" class="w-full md:w-1/2 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition">
+                    </select>
+                </div>
+                <div class="flex flex-col md:flex-row items-center justify-start gap-4">
+                    <button onclick="generateEventSummary()" id="summaryBtn" class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-purple-700 transition">
+                        ✨ Generate Summary
+                    </button>
+                    <button onclick="summarizeFeedback()" id="feedbackBtn" class="bg-gray-200 text-gray-800 font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-gray-300 transition">
+                        ✨ Summarize Feedback
+                    </button>
+                </div>
+                <div id="aiOutput" class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 text-gray-700 min-h-[100px] whitespace-pre-wrap">
+                    Select an event and click a button to generate insights.
+                </div>
+            </section>
+
+            <section id="workflow-section" class="mt-8 bg-white rounded-xl shadow-md p-6">
+                 <h2 class="text-xl font-bold mb-1">System Data Workflow</h2>
+                 <p class="text-gray-600 mb-6">The data in this dashboard is generated from a three-step process within the Campus Event Management Platform. Understanding this flow provides context for the metrics presented.</p>
+                 <div class="flex flex-col md:flex-row justify-around items-center gap-4 text-center">
+                     <div class="flex flex-col items-center p-4">
+                         <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl mb-2">1</div>
+                         <h3 class="font-semibold">Student Registers</h3>
+                         <p class="text-sm text-gray-500">Student uses the mobile app to sign up for an event.</p>
+                     </div>
+                     <div class="text-gray-400 text-2xl font-light transform rotate-90 md:rotate-0">&rarr;</div>
+                     <div class="flex flex-col items-center p-4">
+                         <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-2xl mb-2">2</div>
+                         <h3 class="font-semibold">Admin Marks Attendance</h3>
+                         <p class="text-sm text-gray-500">Admin checks-in the student at the event via the web portal.</p>
+                     </div>
+                      <div class="text-gray-400 text-2xl font-light transform rotate-90 md:rotate-0">&rarr;</div>
+                     <div class="flex flex-col items-center p-4">
+                         <div class="w-16 h-16 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-2xl mb-2">3</div>
+                         <h3 class="font-semibold">Admin Views Reports</h3>
+                         <p class="text-sm text-gray-500">Data is aggregated and visualized here in this dashboard.</p>
+                     </div>
+                 </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const mockData = {
+            colleges: [
+                { id: 1, name: "Maplewood University" },
+                { id: 2, name: "Oakridge Institute" },
+                { id: 3, name: "Pinecrest College" }
+            ],
+            students: [],
+            events: [
+                { id: 101, name: "InnovateTech Hackathon", college_id: 1, type: "Hackathon" },
+                { id: 102, name: "Advanced Python Workshop", college_id: 1, type: "Workshop" },
+                { id: 103, name: "AI in Modern World", college_id: 2, type: "Tech Talk" },
+                { id: 104, name: "Spring Fest 2025", college_id: 3, type: "Fest" },
+                { id: 105, name: "Data Science Summit", college_id: 2, type: "Tech Talk" },
+                { id: 106, name: "Career Fair", college_id: 1, type: "Fest" },
+                { id: 107, name: "Robotics Challenge", college_id: 3, type: "Hackathon" },
+                { id: 108, name: "Intro to UI/UX", college_id: 2, type: "Workshop" },
+            ],
+            registrations: [],
+            attendance: [],
+            feedback: []
+        };
+        
+        const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
+        const API_KEY = "";
+
+        function generateMockData() {
+            let studentIdCounter = 1;
+            mockData.colleges.forEach(college => {
+                for (let i = 0; i < 150; i++) {
+                    mockData.students.push({ id: studentIdCounter, name: Student ${studentIdCounter}, college_id: college.id });
+                    studentIdCounter++;
+                }
+            });
+
+            mockData.events.forEach(event => {
+                const collegeStudents = mockData.students.filter(s => s.college_id === event.college_id);
+                const numRegistrations = Math.floor(Math.random() * (collegeStudents.length * 0.4)) + 10;
+                
+                const registeredStudents = [...collegeStudents].sort(() => 0.5 - Math.random()).slice(0, numRegistrations);
+
+                registeredStudents.forEach(student => {
+                    mockData.registrations.push({ student_id: student.id, event_id: event.id });
+                    
+                    if (Math.random() > 0.25) { 
+                        mockData.attendance.push({ student_id: student.id, event_id: event.id });
+                        if (Math.random() > 0.1) {
+                             mockData.feedback.push({ student_id: student.id, event_id: event.id, rating: Math.floor(Math.random() * 3) + 3 });
+                        } else {
+                             mockData.feedback.push({ student_id: student.id, event_id: event.id, rating: Math.floor(Math.random() * 2) + 1 });
+                        }
+                    }
+                });
+            });
+        }
+
+        let popularityChart, attendanceChart, feedbackChart;
+        let currentFilter = 'all';
+
+        function init() {
+            generateMockData();
+            
+            const collegeFilter = document.getElementById('collegeFilter');
+            mockData.colleges.forEach(college => {
+                const option = document.createElement('option');
+                option.value = college.id;
+                option.textContent = college.name;
+                collegeFilter.appendChild(option);
+            });
+
+            const eventSelector = document.getElementById('eventSelector');
+            mockData.events.forEach(event => {
+                const option = document.createElement('option');
+                option.value = event.id;
+                option.textContent = event.name;
+                eventSelector.appendChild(option);
+            });
+
+            collegeFilter.addEventListener('change', (e) => {
+                currentFilter = e.target.value;
+                updateDashboard();
+            });
+
+            const popularityCtx = document.getElementById('popularityChart').getContext('2d');
+            popularityChart = new Chart(popularityCtx, {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Registrations', data: [], backgroundColor: 'rgba(59, 130, 246, 0.7)', borderColor: 'rgba(59, 130, 246, 1)', borderWidth: 1 }] },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
+            });
+
+            const attendanceCtx = document.getElementById('attendanceChart').getContext('2d');
+            attendanceChart = new Chart(attendanceCtx, {
+                type: 'bar',
+                data: { labels: [], datasets: [
+                    { label: 'Registrations', data: [], backgroundColor: 'rgba(59, 130, 246, 0.5)' },
+                    { label: 'Attendance', data: [], backgroundColor: 'rgba(22, 163, 74, 0.7)' }
+                ]},
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+            
+            const feedbackCtx = document.getElementById('feedbackChart').getContext('2d');
+            feedbackChart = new Chart(feedbackCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['5 Stars', '4 Stars', '3 Stars', '2 Stars', '1 Star'],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: ['#10B981', '#60A5FA', '#FBBF24', '#F59E0B', '#EF4444']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            const collegeId = currentFilter === 'all' ? null : parseInt(currentFilter);
+
+            let filteredEvents = collegeId ? mockData.events.filter(e => e.college_id === collegeId) : mockData.events;
+            let filteredRegs = collegeId ? mockData.registrations.filter(r => filteredEvents.some(e => e.id === r.event_id)) : mockData.registrations;
+            let filteredAtt = collegeId ? mockData.attendance.filter(a => filteredEvents.some(e => e.id === a.event_id)) : mockData.attendance;
+            let filteredFeedback = collegeId ? mockData.feedback.filter(f => filteredEvents.some(e => e.id === f.event_id)) : mockData.feedback;
+            let filteredStudents = collegeId ? mockData.students.filter(s => s.college_id === collegeId) : mockData.students;
+
+            updateKPIs(filteredEvents, filteredRegs, filteredAtt, filteredFeedback);
+            updatePopularityChart(filteredEvents, filteredRegs);
+            updateAttendanceChart(filteredEvents, filteredRegs, filteredAtt);
+            updateFeedbackChart(filteredFeedback);
+            updateStudentTable(filteredAtt);
+        }
+
+        function updateKPIs(events, regs, att, feedback) {
+            document.getElementById('totalEvents').textContent = events.length;
+            document.getElementById('totalRegistrations').textContent = regs.length;
+
+            const totalAttendance = att.length;
+            const avgAttendanceRate = regs.length > 0 ? ((totalAttendance / regs.length) * 100).toFixed(1) : 0;
+            document.getElementById('avgAttendance').textContent = ${avgAttendanceRate}%;
+            
+            const totalFeedback = feedback.reduce((sum, f) => sum + f.rating, 0);
+            const avgFeedbackScore = feedback.length > 0 ? (totalFeedback / feedback.length).toFixed(2) : 'N/A';
+            document.getElementById('avgFeedback').textContent = ${avgFeedbackScore}/5;
+        }
+
+        function updatePopularityChart(events, regs) {
+            const eventRegistrations = events.map(event => {
+                return {
+                    name: event.name.length > 20 ? event.name.substring(0, 20) + '...' : event.name,
+                    count: regs.filter(r => r.event_id === event.id).length
+                }
+            }).sort((a, b) => b.count - a.count);
+            
+            popularityChart.data.labels = eventRegistrations.map(e => e.name);
+            popularityChart.data.datasets[0].data = eventRegistrations.map(e => e.count);
+            popularityChart.update();
+        }
+
+        function updateAttendanceChart(events, regs, att) {
+            const eventData = events.map(event => {
+                const name = event.name.length > 16 ? event.name.substring(0, 16) + '...' : event.name;
+                const regCount = regs.filter(r => r.event_id === event.id).length;
+                const attCount = att.filter(a => a.event_id === event.id).length;
+                return { name, regCount, attCount };
+            }).slice(0, 10);
+            
+            attendanceChart.data.labels = eventData.map(e => e.name);
+            attendanceChart.data.datasets[0].data = eventData.map(e => e.regCount);
+            attendanceChart.data.datasets[1].data = eventData.map(e => e.attCount);
+            attendanceChart.update();
+        }
+        
+        function updateFeedbackChart(feedback) {
+            const ratingCounts = [0, 0, 0, 0, 0]; 
+            feedback.forEach(f => {
+                if (f.rating >= 1 && f.rating <= 5) {
+                    ratingCounts[5 - f.rating]++;
+                }
+            });
+            feedbackChart.data.datasets[0].data = ratingCounts;
+            feedbackChart.update();
+        }
+        
+        function updateStudentTable(attendance) {
+            const studentAttendance = {};
+            attendance.forEach(att => {
+                studentAttendance[att.student_id] = (studentAttendance[att.student_id] || 0) + 1;
+            });
+            
+            const sortedStudents = Object.keys(studentAttendance).map(studentId => {
+                const student = mockData.students.find(s => s.id === parseInt(studentId));
+                return {
+                    ...student,
+                    attendedCount: studentAttendance[studentId]
+                };
+            }).sort((a, b) => b.attendedCount - a.attendedCount);
+            
+            const tableBody = document.getElementById('studentTableBody');
+            tableBody.innerHTML = '';
+            
+            sortedStudents.slice(0, 10).forEach(student => {
+                const college = mockData.colleges.find(c => c.id === student.college_id);
+                const row = `
+                    <tr class="border-b border-gray-200 hover:bg-gray-100">
+                        <td class="p-3 text-sm text-gray-700">${student.name}</td>
+                        <td class="p-3 text-sm text-gray-500">${college ? college.name : 'N/A'}</td>
+                        <td class="p-3 text-sm text-gray-700 font-bold text-right">${student.attendedCount}</td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        }
+        
+        async function generateEventSummary() {
+            const eventSelector = document.getElementById('eventSelector');
+            const eventId = parseInt(eventSelector.value);
+            const outputDiv = document.getElementById('aiOutput');
+            
+            if (isNaN(eventId)) {
+                outputDiv.textContent = 'Please select a valid event.';
+                return;
+            }
+
+            outputDiv.textContent = 'Generating summary...';
+            const event = mockData.events.find(e => e.id === eventId);
+            const registrations = mockData.registrations.filter(r => r.event_id === eventId).length;
+            const attendance = mockData.attendance.filter(a => a.event_id === eventId).length;
+            const feedback = mockData.feedback.filter(f => f.event_id === eventId);
+            const avgFeedback = feedback.length > 0 ? (feedback.reduce((sum, f) => sum + f.rating, 0) / feedback.length).toFixed(2) : 'no feedback';
+            const attendanceRate = registrations > 0 ? ((attendance / registrations) * 100).toFixed(1) : 0;
+
+            const prompt = `Act as a data analyst. Write a concise, one-paragraph summary of the event performance for the following event:
+            Event Name: ${event.name}
+            Event Type: ${event.type}
+            Total Registrations: ${registrations}
+            Total Attendance: ${attendance}
+            Attendance Rate: ${attendanceRate}%
+            Average Feedback Score: ${avgFeedback} out of 5`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+            };
+
+            try {
+                const response = await fetch(API_URL + API_KEY, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json();
+                const generatedText = result.candidates[0].content.parts[0].text;
+                outputDiv.textContent = generatedText;
+            } catch (error) {
+                outputDiv.textContent = 'Failed to generate summary. Please check your network connection.';
+            }
+        }
+
+        async function summarizeFeedback() {
+            const eventSelector = document.getElementById('eventSelector');
+            const eventId = parseInt(eventSelector.value);
+            const outputDiv = document.getElementById('aiOutput');
+            
+            if (isNaN(eventId)) {
+                outputDiv.textContent = 'Please select a valid event.';
+                return;
+            }
+
+            outputDiv.textContent = 'Summarizing feedback...';
+            const event = mockData.events.find(e => e.id === eventId);
+            const feedbackComments = mockData.feedback.filter(f => f.event_id === eventId).map(f => `Rating: ${f.rating} - ` + (f.comments || 'No comment provided.'));
+
+            if (feedbackComments.length === 0) {
+                 outputDiv.textContent = No feedback comments available for ${event.name}.;
+                 return;
+            }
+
+            const prompt = `Act as an expert event manager. Analyze the following feedback for an event and provide a bullet-point summary of the key themes, both positive and negative.
+            Event: ${event.name}
+            Feedback: ${feedbackComments.join('\n')}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+            };
+
+            try {
+                const response = await fetch(API_URL + API_KEY, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json();
+                const generatedText = result.candidates[0].content.parts[0].text;
+                outputDiv.textContent = generatedText;
+            } catch (error) {
+                outputDiv.textContent = 'Failed to summarize feedback. Please check your network connection.';
+            }
+        }
+        
+        window.onload = init;
+    </script>
+</body>
+</html>

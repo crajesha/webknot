@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Event App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Academic Calm -->
+    <!-- Application Structure Plan: The application is designed as a simple two-panel single page: one for browsing all available events and one for viewing the user's registered events. This structure provides a clear, task-oriented user flow. The user can easily find an event on the left, click "Register," and see it immediately appear on the right. This design prioritizes ease of use and immediate feedback, which is essential for a student-facing mobile application. -->
+    <!-- Visualization & Content Choices: 
+        - Event List: Organize/Inform -> Card-based UI -> Provides a clean, scannable list of events with key details like type and date -> HTML/CSS.
+        - Registration Button: Inform/Action -> Clickable button -> Serves as the primary interaction for students to sign up for an event, with state changes to reflect registration status -> HTML/CSS/JS.
+        - My Events List: Organize/Inform -> Interactive list -> Displays events the student has registered for, providing a personal dashboard -> HTML/CSS/JS.
+        This design uses a simple but effective combination of UI components to achieve the core functionality of the student application mockup. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .event-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .event-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-6 lg:p-8">
+        
+        <header class="mb-8 text-center md:text-left">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Student Event Hub</h1>
+            <p class="text-gray-600 mt-2">Find and register for events on campus.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <section id="browse-events">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">Browse All Events</h2>
+                <div id="eventList" class="flex flex-col gap-4">
+                </div>
+            </section>
+
+            <section id="my-events">
+                <h2 class="text-2xl font-bold mb-4 text-gray-800">My Registered Events</h2>
+                <div id="myEventsList" class="flex flex-col gap-4">
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const allEvents = [
+            { id: 1, name: "Intro to Python Workshop", type: "Workshop", date: "Oct 25" },
+            { id: 2, name: "Annual Tech Fest", type: "Fest", date: "Nov 12" },
+            { id: 3, name: "AI & Machine Learning Seminar", type: "Seminar", date: "Nov 3" },
+            { id: 4, name: "Campus Hackathon 2025", type: "Hackathon", date: "Dec 1" },
+            { id: 5, name: "Web Development Bootcamp", type: "Workshop", date: "Oct 29" },
+            { id: 6, name: "Entrepreneurship Summit", type: "Summit", date: "Nov 20" },
+        ];
+
+        let registeredEvents = [];
+
+        function renderEvents() {
+            const eventList = document.getElementById('eventList');
+            const myEventsList = document.getElementById('myEventsList');
+            eventList.innerHTML = '';
+            myEventsList.innerHTML = '';
+
+            const availableEvents = allEvents.filter(event => !registeredEvents.some(regEvent => regEvent.id === event.id));
+
+            availableEvents.forEach(event => {
+                const eventCard = `
+                    <div class="event-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h3 class="font-semibold text-lg">${event.name}</h3>
+                            <p class="text-sm text-gray-500">${event.type} • ${event.date}</p>
+                        </div>
+                        <button onclick="registerForEvent(${event.id})" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition">Register</button>
+                    </div>
+                `;
+                eventList.innerHTML += eventCard;
+            });
+
+            if (registeredEvents.length === 0) {
+                myEventsList.innerHTML = '<p class="text-gray-500 italic">You have not registered for any events yet.</p>';
+            } else {
+                registeredEvents.forEach(event => {
+                    const myEventCard = `
+                        <div class="event-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <h3 class="font-semibold text-lg">${event.name}</h3>
+                                <p class="text-sm text-gray-500">${event.type} • ${event.date}</p>
+                            </div>
+                            <span class="px-3 py-1 bg-green-100 text-green-700 font-medium text-sm rounded-full">Registered</span>
+                        </div>
+                    `;
+                    myEventsList.innerHTML += myEventCard;
+                });
+            }
+        }
+
+        function registerForEvent(eventId) {
+            const eventToRegister = allEvents.find(event => event.id === eventId);
+            if (eventToRegister) {
+                registeredEvents.push(eventToRegister);
+                renderEvents();
+            }
+        }
+
+        renderEvents();
+    </script>
+</body>
+</html>
